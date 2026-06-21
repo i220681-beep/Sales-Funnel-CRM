@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Funnel CRM — Queue, Stack, Sort & Search</title>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#14181D;
+    --panel-line:#23282F;
+    --amber:#FFB454;
+    --amber-dim:#7A5B2E;
+    --teal:#5EC8C2;
+    --teal-dim:#2E5957;
+    --text:#ECE9E1;
+    --muted:#7C8189;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    padding:32px 20px 60px;
+  }
+  .wrap{max-width:1080px; margin:0 auto;}
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--amber); margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--mono); font-weight:700; font-size:clamp(26px,4vw,38px);
+    margin:0 0 8px; letter-spacing:-0.01em;
+  }
+  .sub{color:var(--muted); font-size:15px; max-width:640px; line-height:1.5; margin:0;}
+  .byline{color:var(--muted); font-size:13px; margin-top:14px;}
+  .byline a{color:var(--teal); text-decoration:none;}
+  .byline a:hover{text-decoration:underline;}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px;}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:10px;
+    padding:18px 18px 16px;
+  }
+  .panel-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px;}
+  .panel-title{font-family:var(--mono); font-size:13px; letter-spacing:.06em; text-transform:uppercase; margin:0;}
+  .panel-title.amber{color:var(--amber);}
+  .panel-title.teal{color:var(--teal);}
+  .panel-desc{color:var(--muted); font-size:12.5px; margin:0 0 14px;}
+
+  .lane{
+    display:flex; gap:8px; min-height:64px; align-items:center;
+    overflow-x:auto; padding:4px 2px 10px; border-bottom:1px dashed var(--panel-line); margin-bottom:12px;
+  }
+  .stack-lane{
+    display:flex; flex-direction:column-reverse; gap:6px; min-height:64px; max-height:220px;
+    overflow-y:auto; padding:4px; border-bottom:1px dashed var(--panel-line); margin-bottom:12px;
+  }
+  .chip{
+    flex:0 0 auto; font-family:var(--mono); font-size:12px;
+    border-radius:7px; padding:8px 10px; white-space:nowrap;
+    border:1px solid var(--amber-dim); background:rgba(255,180,84,.08); color:var(--text);
+    animation:pop .25s ease;
+  }
+  .stack-lane .chip{border-color:var(--teal-dim); background:rgba(94,200,194,.08); white-space:normal;}
+  .chip b{color:var(--amber);}
+  .stack-lane .chip b{color:var(--teal);}
+  .chip .pv{color:var(--muted);}
+  @keyframes pop{from{transform:scale(.85); opacity:0;} to{transform:scale(1); opacity:1;}}
+  .empty-msg{font-family:var(--mono); font-size:12px; color:var(--muted); padding:8px 0;}
+
+  .row{display:flex; gap:8px; flex-wrap:wrap;}
+  button{
+    font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:7px; border:1px solid var(--panel-line); background:#1B2026; color:var(--text);
+    padding:8px 12px; transition:.15s;
+  }
+  button:hover{border-color:var(--amber);}
+  button.primary{background:var(--amber); color:#1B1304; border-color:var(--amber);}
+  button.primary:hover{filter:brightness(1.08);}
+  button.tealbtn{background:var(--teal); color:#0A2625; border-color:var(--teal);}
+  button.tealbtn:hover{filter:brightness(1.08);}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  select, input[type=text]{
+    font-family:var(--sans); font-size:13px; background:#1B2026; color:var(--text);
+    border:1px solid var(--panel-line); border-radius:7px; padding:8px 10px;
+  }
+
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:4px;}
+  th{
+    text-align:left; font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); padding:6px 8px; border-bottom:1px solid var(--panel-line);
+  }
+  td{padding:7px 8px; border-bottom:1px solid var(--panel-line);}
+  tr.hit td{background:rgba(255,180,84,.12);}
+  tr.cmp td{background:rgba(94,200,194,.10);}
+  .pvbar{display:inline-block; width:60px; height:6px; background:var(--panel-line); border-radius:3px; position:relative; vertical-align:middle; margin-right:6px;}
+  .pvbar i{display:block; height:6px; border-radius:3px; background:var(--amber);}
+
+  .controls-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 14px;}
+  .controls-row label{font-size:12.5px; color:var(--muted);}
+
+  .console{
+    background:#0A0D0F; border:1px solid var(--panel-line); border-radius:10px;
+    padding:14px 16px; font-family:var(--mono); font-size:12.5px; line-height:1.65;
+    height:200px; overflow-y:auto;
+  }
+  .console-title{font-family:var(--mono); font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); margin:0 0 10px;}
+  .log-line{color:var(--muted);}
+  .log-line .tag{color:var(--teal); margin-right:6px;}
+  .log-line.swap .tag, .log-line.found .tag{color:var(--amber);}
+  .log-line .arrow{color:var(--text);}
+  .console::-webkit-scrollbar{width:8px;}
+  .console::-webkit-scrollbar-thumb{background:var(--panel-line); border-radius:4px;}
+
+  footer{text-align:center; color:var(--muted); font-size:12px; margin-top:36px; font-family:var(--mono);}
+  footer a{color:var(--teal); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Data Structures, Made Visible</p>
+    <h1>Sales Funnel CRM</h1>
+    <p class="sub">Started as a terminal app for a Data Structures course — a Queue manages incoming leads, a Stack manages follow-ups, and classic sorting/searching algorithms organise the customer book. Rebuilt here as a live demo so you can watch the structures work, not just read about them.</p>
+    <p class="byline">Ibtisam Kayani &amp; Ahsan Chohan · <a href="https://github.com/m-ibtisam/sales-funnel-crm" target="_blank">source on GitHub →</a></p>
+  </header>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-head"><p class="panel-title amber">Lead Queue — FIFO</p></div>
+      <p class="panel-desc">New leads join at the right. The oldest lead (left) is always processed first — nobody gets skipped.</p>
+      <div id="queueLane" class="lane"></div>
+      <div class="row">
+        <button class="primary" id="btnAddLead">+ Add random lead</button>
+        <button id="btnProcessLead">Process next lead →</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><p class="panel-title teal">Follow-up Stack — LIFO</p></div>
+      <p class="panel-desc">Push a customer onto the stack to flag a follow-up. The most recent one is handled first, like a to-do list responding to what just happened.</p>
+      <div id="stackLane" class="stack-lane"></div>
+      <div class="row">
+        <button class="tealbtn" id="btnPushFollowup">+ Flag a follow-up</button>
+        <button id="btnPopFollowup">Complete top follow-up ↑</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:18px;">
+    <div class="panel-head"><p class="panel-title amber">Customer Book</p></div>
+    <p class="panel-desc">Sort by deal potential, or search by name / ID. Every comparison the algorithm makes streams into the console below.</p>
+
+    <div class="controls-row">
+      <label>Sort:</label>
+      <select id="sortAlgo">
+        <option value="bubble">Bubble sort</option>
+        <option value="selection">Selection sort</option>
+        <option value="insertion">Insertion sort</option>
+      </select>
+      <button id="btnSort">Run sort</button>
+
+      <span style="width:1px; height:20px; background:var(--panel-line); margin:0 6px;"></span>
+
+      <input type="text" id="searchInput" placeholder="Search name or ID…" style="width:160px;">
+      <select id="searchAlgo">
+        <option value="linear">Linear search (by name)</option>
+        <option value="binary">Binary search (by ID)</option>
+      </select>
+      <button id="btnSearch">Search</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Potential</th><th>Email</th></tr>
+      </thead>
+      <tbody id="custBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <p class="console-title">⌁ Algorithm trace</p>
+    <div class="console" id="consoleLog"></div>
+  </div>
+
+  <footer>built with vanilla JS, no framework, no backend — <a href="https://github.com/m-ibtisam/sales-funnel-crm" target="_blank">view source / fork it</a></footer>
+</div>
+
+<script>
+const firstNames = ["Ahmed","Fatima","Bilal","Ayesha","Omar","Zainab","Hassan","Mariam","Usman","Sanaullah","Rabia","Imran","Nida","Tariq","Seema","Hamza","Sara","Noman","Komal","Faraz"];
+const lastNames = ["Hassan","Ali","Khan","Siddiqui","Ahmed","Malik","Raza","Iqbal","Sheikh","Bhatti","Noor","Qureshi","Aziz","Bano","Chohan","Kayani"];
+
+let idCounter = 1015;
+let customers = [
+  ["Ahmed Hassan",8],["Fatima Ali",9],["Bilal Khan",7],["Ayesha Siddiqui",6],["Omar Ahmed",8],
+  ["Zainab Malik",9],["Hassan Raza",7],["Mariam Iqbal",8],["Usman Sheikh",6],["Sanaullah Bhatti",9],
+  ["Rabia Noor",7],["Imran Qureshi",8],["Nida Khan",6],["Tariq Aziz",9],["Seema Bano",7]
+].map((c,i)=>({id:1000+i, name:c[0], potential:c[1], email:c[0].toLowerCase().replace(" ",".")+"@email.com"}));
+
+let queue = [];
+let stack = [];
+
+function rnd(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function newCustomer(){
+  const name = rnd(firstNames)+" "+rnd(lastNames);
+  const c = {id:idCounter++, name, potential: 1+Math.floor(Math.random()*10), email:name.toLowerCase().replace(" ",".")+"@email.com"};
+  return c;
+}
+
+function log(html, cls=""){
+  const el = document.getElementById("consoleLog");
+  const line = document.createElement("div");
+  line.className = "log-line "+cls;
+  line.innerHTML = html;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderQueue(){
+  const lane = document.getElementById("queueLane");
+  lane.innerHTML = "";
+  if(queue.length===0){lane.innerHTML = '<span class="empty-msg">queue empty — add a lead</span>'; return;}
+  queue.forEach(c=>{
+    const d = document.createElement("div");
+    d.className = "chip";
+    d.innerHTML = `<b>${c.name}</b> <span class="pv">· ${c.potential}/10</span>`;
+    lane.appendChild(d);
+  });
+}
+
+function renderStack(){
+  const lane = document.getElementById("stackLane");
+  lane.innerHTML = "";
+  if(stack.length===0){lane.innerHTML = '<span class="empty-msg">no follow-ups flagged</span>'; return;}
+  // top of stack rendered first since flex-direction is column-reverse... we want last pushed at top visually
+  [...stack].reverse().forEach((c,i)=>{
+    const d = document.createElement("div");
+    d.className = "chip";
+    const tag = i===0 ? "↑ next" : "";
+    d.innerHTML = `<b>${c.name}</b> <span class="pv">· ${c.potential}/10 ${tag}</span>`;
+    lane.appendChild(d);
+  });
+}
+
+function renderTable(highlightIds={hit:null, cmp:[]}){
+  const body = document.getElementById("custBody");
+  body.innerHTML = "";
+  customers.forEach(c=>{
+    const tr = document.createElement("tr");
+    if(highlightIds.hit===c.id) tr.className = "hit";
+    else if(highlightIds.cmp.includes(c.id)) tr.className = "cmp";
+    tr.innerHTML = `<td>${c.id}</td><td>${c.name}</td>
+      <td><span class="pvbar"><i style="width:${c.potential*10}%"></i></span>${c.potential}/10</td>
+      <td style="color:var(--muted)">${c.email}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById("btnAddLead").onclick = ()=>{
+  const c = newCustomer();
+  queue.push(c);
+  log(`<span class="tag">[QUEUE]</span> enqueue <b style="color:var(--text)">${c.name}</b> <span class="arrow">→</span> position ${queue.length} in line`);
+  renderQueue();
+};
+
+document.getElementById("btnProcessLead").onclick = ()=>{
+  if(queue.length===0){ log(`<span class="tag">[QUEUE]</span> nothing to process — queue is empty`); return; }
+  const c = queue.shift();
+  customers.push(c);
+  log(`<span class="tag">[QUEUE]</span> dequeue <b style="color:var(--text)">${c.name}</b> <span class="arrow">→</span> moved into Customer Book`);
+  renderQueue();
+  renderTable();
+};
+
+document.getElementById("btnPushFollowup").onclick = ()=>{
+  const pool = customers.length ? customers : [newCustomer()];
+  const c = rnd(pool);
+  stack.push(c);
+  log(`<span class="tag">[STACK]</span> push <b style="color:var(--text)">${c.name}</b> <span class="arrow">→</span> now top of follow-up stack`);
+  renderStack();
+};
+
+document.getElementById("btnPopFollowup").onclick = ()=>{
+  if(stack.length===0){ log(`<span class="tag">[STACK]</span> nothing to complete — stack is empty`); return; }
+  const c = stack.pop();
+  log(`<span class="tag">[STACK]</span> pop <b style="color:var(--text)">${c.name}</b> <span class="arrow">→</span> follow-up completed`, "found");
+  renderStack();
+};
+
+async function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+document.getElementById("btnSort").onclick = async ()=>{
+  const algo = document.getElementById("sortAlgo").value;
+  log(`<span class="tag">[SORT:${algo.toUpperCase()}]</span> ranking ${customers.length} customers by potential value, highest first…`);
+  let arr = [...customers];
+  const n = arr.length;
+
+  if(algo==="bubble"){
+    for(let i=0;i<n;i++){
+      for(let j=0;j<n-i-1;j++){
+        renderTable({hit:null, cmp:[arr[j].id, arr[j+1].id]});
+        log(`compare <b style="color:var(--text)">${arr[j].name}</b>(${arr[j].potential}) vs <b style="color:var(--text)">${arr[j+1].name}</b>(${arr[j+1].potential})`, "cmp");
+        await sleep(35);
+        if(arr[j].potential < arr[j+1].potential){
+          [arr[j],arr[j+1]] = [arr[j+1],arr[j]];
+          log(`&nbsp;&nbsp;↳ swap`, "swap");
+        }
+      }
+    }
+  } else if(algo==="selection"){
+    for(let i=0;i<n;i++){
+      let maxIdx = i;
+      for(let j=i+1;j<n;j++){
+        renderTable({hit:null, cmp:[arr[j].id, arr[maxIdx].id]});
+        log(`compare <b style="color:var(--text)">${arr[j].name}</b>(${arr[j].potential}) vs current max <b style="color:var(--text)">${arr[maxIdx].name}</b>(${arr[maxIdx].potential})`, "cmp");
+        await sleep(35);
+        if(arr[j].potential > arr[maxIdx].potential) maxIdx = j;
+      }
+      [arr[i],arr[maxIdx]] = [arr[maxIdx],arr[i]];
+    }
+  } else {
+    for(let i=1;i<n;i++){
+      let keyItem = arr[i], j = i-1;
+      while(j>=0 && arr[j].potential < keyItem.potential){
+        renderTable({hit:null, cmp:[arr[j].id, keyItem.id]});
+        log(`<b style="color:var(--text)">${keyItem.name}</b>(${keyItem.potential}) outranks <b style="color:var(--text)">${arr[j].name}</b>(${arr[j].potential}) <span class="arrow">→</span> shift right`, "swap");
+        await sleep(35);
+        arr[j+1] = arr[j];
+        j--;
+      }
+      arr[j+1] = keyItem;
+    }
+  }
+  customers = arr;
+  renderTable();
+  log(`<span class="tag">[SORT:${algo.toUpperCase()}]</span> done — ranked top to bottom by potential.`, "found");
+};
+
+document.getElementById("btnSearch").onclick = async ()=>{
+  const algo = document.getElementById("searchAlgo").value;
+  const term = document.getElementById("searchInput").value.trim();
+  if(!term){ log(`<span class="tag">[SEARCH]</span> type a name or ID to search for`); return; }
+
+  if(algo==="linear"){
+    log(`<span class="tag">[SEARCH:LINEAR]</span> scanning customer book for "<b style="color:var(--text)">${term}</b>"…`);
+    let found = null;
+    for(const c of customers){
+      renderTable({hit:null, cmp:[c.id]});
+      log(`checking <b style="color:var(--text)">${c.name}</b>…`, "cmp");
+      await sleep(70);
+      if(c.name.toLowerCase().includes(term.toLowerCase())){ found = c; break; }
+    }
+    if(found){ renderTable({hit:found.id, cmp:[]}); log(`<span class="tag">[SEARCH:LINEAR]</span> match found <span class="arrow">→</span> <b style="color:var(--text)">${found.name}</b>`, "found"); }
+    else { renderTable({hit:null, cmp:[]}); log(`<span class="tag">[SEARCH:LINEAR]</span> no match for "${term}"`); }
+  } else {
+    const sorted = [...customers].sort((a,b)=>a.id-b.id);
+    const targetId = parseInt(term);
+    if(isNaN(targetId)){ log(`<span class="tag">[SEARCH:BINARY]</span> binary search needs a numeric ID`); return; }
+    log(`<span class="tag">[SEARCH:BINARY]</span> sorted index by ID, searching for ${targetId}…`);
+    let left=0, right=sorted.length-1, found=null;
+    while(left<=right){
+      const mid = Math.floor((left+right)/2);
+      renderTable({hit:null, cmp:[sorted[mid].id]});
+      log(`mid=${sorted[mid].id} vs target ${targetId} <span class="arrow">→</span> ${sorted[mid].id===targetId ? "match" : sorted[mid].id<targetId ? "go right" : "go left"}`, "cmp");
+      await sleep(220);
+      if(sorted[mid].id===targetId){ found = sorted[mid]; break; }
+      else if(sorted[mid].id<targetId) left = mid+1;
+      else right = mid-1;
+    }
+    if(found){ renderTable({hit:found.id, cmp:[]}); log(`<span class="tag">[SEARCH:BINARY]</span> match found <span class="arrow">→</span> <b style="color:var(--text)">${found.name}</b>`, "found"); }
+    else { renderTable({hit:null, cmp:[]}); log(`<span class="tag">[SEARCH:BINARY]</span> no customer with ID ${targetId}`); }
+  }
+};
+
+renderQueue();
+renderStack();
+renderTable();
+log(`<span class="tag">[SYSTEM]</span> ready — try adding a lead, then processing it.`);
+</script>
+</body>
+</html>
